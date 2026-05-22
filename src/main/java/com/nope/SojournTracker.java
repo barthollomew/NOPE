@@ -2,6 +2,7 @@ package com.nope;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class SojournTracker {
     private static final VarHandle ARRIVAL;
@@ -23,14 +24,15 @@ public final class SojournTracker {
     @SuppressWarnings("FieldMayBeFinal")
     private volatile long startNanos;
 
-    // EMA of sojourn time in nanoseconds (alpha = 0.125)
-    private volatile double emaSojournNanos;
+    // EMA of sojourn time in nanoseconds (alpha = 0.125).
+    // Stored as raw long bits in an AtomicLong so the read-modify-write is a proper CAS
+    // loop rather than a racy volatile double update under concurrent complete() calls.
+    private final AtomicLong emaBits = new AtomicLong(Double.doubleToRawLongBits(0.0));
     private static final double ALPHA = 0.125;
 
     public SojournTracker() {
         this.arrivalNanos = 0L;
         this.startNanos = 0L;
-        this.emaSojournNanos = 0.0;
     }
 
     public void recordArrival(long nanos) {
@@ -55,21 +57,25 @@ public final class SojournTracker {
     public void recordCompletion(long nowNanos) {
         long sojourn = sojournNanos(nowNanos);
         if (sojourn > 0) {
-            double ema = emaSojournNanos;
-            emaSojournNanos = (ema == 0.0) ? sojourn : ema + ALPHA * (sojourn - ema);
+            emaBits.updateAndGet(prev -> {
+                double ema = Double.longBitsToDouble(prev);
+                double next = (ema == 0.0) ? sojourn : ema + ALPHA * (sojourn - ema);
+                return Double.doubleToRawLongBits(next);
+            });
         }
     }
 
     public double emaSojournNanos() {
-        return emaSojournNanos;
+        return Double.longBitsToDouble(emaBits.get());
     }
 
     public double emaSojournSeconds() {
-        return emaSojournNanos / 1_000_000_000.0;
+        return emaSojournNanos() / 1_000_000_000.0;
     }
 
     public void reset() {
         ARRIVAL.setVolatile(this, 0L);
         START.setVolatile(this, 0L);
+        emaBits.set(Double.doubleToRawLongBits(0.0));
     }
 }

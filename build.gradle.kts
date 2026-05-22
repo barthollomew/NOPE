@@ -33,9 +33,10 @@ tasks.test {
 }
 
 jmh {
-    warmupIterations.set(3)
-    iterations.set(5)
+    warmupIterations.set(10)
+    iterations.set(10)
     fork.set(1)
     timeUnit.set("us")
     resultFormat.set("TEXT")
+    resultsFile.set(project.file("${project.rootDir}/jmh-raw.txt"))
 }

@@ -1,0 +1,41 @@
+Benchmark                                                                              Mode     Cnt   Score    Error  Units
+CoDelBenchmark.shouldDrop_aboveTarget                                                  avgt      10   0.024 ±  0.001  us/op
+CoDelBenchmark.shouldDrop_belowTarget                                                  avgt      10   0.028 ±  0.001  us/op
+NopeAcceptBenchmark.acceptAndRelease_background                                        avgt      10   0.110 ±  0.002  us/op
+NopeAcceptBenchmark.acceptAndRelease_critical                                          avgt      10   0.110 ±  0.005  us/op
+CoDelBenchmark.shouldDrop_aboveTarget                                                sample  381806   0.050 ±  0.001  us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.00                   sample           0.040           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.50                   sample           0.050           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.90                   sample           0.050           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.95                   sample           0.051           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.99                   sample           0.051           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.999                  sample           0.070           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p0.9999                 sample           3.623           us/op
+CoDelBenchmark.shouldDrop_aboveTarget:shouldDrop_aboveTarget·p1.00                   sample          16.272           us/op
+CoDelBenchmark.shouldDrop_belowTarget                                                sample  339310   0.054 ±  0.001  us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.00                   sample           0.050           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.50                   sample           0.050           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.90                   sample           0.060           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.95                   sample           0.060           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.99                   sample           0.061           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.999                  sample           0.061           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p0.9999                 sample           3.837           us/op
+CoDelBenchmark.shouldDrop_belowTarget:shouldDrop_belowTarget·p1.00                   sample          22.176           us/op
+NopeAcceptBenchmark.acceptAndRelease_background                                      sample  353852   0.136 ±  0.001  us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.00    sample           0.120           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.50    sample           0.130           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.90    sample           0.140           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.95    sample           0.150           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.99    sample           0.161           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.999   sample           0.973           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p0.9999  sample           5.085           us/op
+NopeAcceptBenchmark.acceptAndRelease_background:acceptAndRelease_background·p1.00    sample          33.024           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical                                        sample  350930   0.138 ±  0.001  us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.00        sample           0.120           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.50        sample           0.130           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.90        sample           0.141           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.95        sample           0.150           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.99        sample           0.161           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.999       sample           0.992           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p0.9999      sample           7.044           us/op
+NopeAcceptBenchmark.acceptAndRelease_critical:acceptAndRelease_critical·p1.00        sample          78.208           us/op

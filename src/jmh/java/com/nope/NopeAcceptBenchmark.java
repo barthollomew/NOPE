@@ -4,11 +4,11 @@ import org.openjdk.jmh.annotations.*;
 
 import java.util.concurrent.TimeUnit;
 
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode({Mode.AverageTime, Mode.SampleTime})
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
-@Warmup(iterations = 3, time = 1)
-@Measurement(iterations = 5, time = 1)
+@Warmup(iterations = 10, time = 1)
+@Measurement(iterations = 10, time = 1)
 @Fork(1)
 public class NopeAcceptBenchmark {
     private LoadShedder shedder;
