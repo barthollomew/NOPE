@@ -1,6 +1,7 @@
 package com.nope;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.LongAdder;
 
 public final class LoadShedder implements AutoCloseable {
     private final ConcurrentLinkedQueue<RequestContext> criticalQueue = new ConcurrentLinkedQueue<>();
@@ -13,12 +14,12 @@ public final class LoadShedder implements AutoCloseable {
     private final ConcurrencyLimiter limiter;
     private final SheddingPolicy sheddingPolicy;
 
-    // Shed counters (no boxing needed, accessed via plain volatile reads)
-    private volatile long shedBackground;
-    private volatile long shedStandard;
-    private volatile long shedCritical;
-    private volatile long accepted;
-    private volatile long rejected;
+    // Shed counters: LongAdder avoids the data-race of volatile-long++ under concurrent access.
+    private final LongAdder shedBackground = new LongAdder();
+    private final LongAdder shedStandard   = new LongAdder();
+    private final LongAdder shedCritical   = new LongAdder();
+    private final LongAdder accepted       = new LongAdder();
+    private final LongAdder rejected       = new LongAdder();
 
     public LoadShedder(NopeSemaphore semaphore,
                        CoDelController codel,
@@ -56,7 +57,7 @@ public final class LoadShedder implements AutoCloseable {
         if (!semaphore.tryAcquire()) {
             // Backpressure: shed lowest priority to make room, then reject this
             shed(nowNanos);
-            rejected++;
+            rejected.increment();
             removeFromQueue(ctx);
             return Decision.REJECTED;
         }
@@ -65,14 +66,14 @@ public final class LoadShedder implements AutoCloseable {
         RequestContext next = dequeue();
         if (next == null) {
             semaphore.release();
-            rejected++;
+            rejected.increment();
             return Decision.REJECTED;
         }
 
         next.markStart(nowNanos);
         sojournTracker.recordArrival(next.arrivalNanos());
         sojournTracker.recordStart(nowNanos);
-        accepted++;
+        accepted.increment();
         return Decision.ACCEPTED;
     }
 
@@ -101,17 +102,17 @@ public final class LoadShedder implements AutoCloseable {
         RequestContext victim = sheddingPolicy.selectForShed(backgroundQueue, standardQueue, criticalQueue);
         if (victim == null) return;
         switch (victim.priority()) {
-            case BACKGROUND -> shedBackground++;
-            case STANDARD -> shedStandard++;
-            case CRITICAL -> shedCritical++;
+            case BACKGROUND -> shedBackground.increment();
+            case STANDARD   -> shedStandard.increment();
+            case CRITICAL   -> shedCritical.increment();
         }
     }
 
-    public long shedBackground() { return shedBackground; }
-    public long shedStandard() { return shedStandard; }
-    public long shedCritical() { return shedCritical; }
-    public long accepted() { return accepted; }
-    public long rejected() { return rejected; }
+    public long shedBackground() { return shedBackground.sum(); }
+    public long shedStandard()   { return shedStandard.sum(); }
+    public long shedCritical()   { return shedCritical.sum(); }
+    public long accepted()       { return accepted.sum(); }
+    public long rejected()       { return rejected.sum(); }
 
     public int criticalQueueSize() { return criticalQueue.size(); }
     public int standardQueueSize() { return standardQueue.size(); }
