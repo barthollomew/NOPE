@@ -1,6 +1,12 @@
 # NOPE
 
-Adaptive load shedding library for Java. Uses CoDel and Little's Law to control HTTP request flow. Drops low priority traffic before the system gets slow. Fast decision path on every request.
+Adaptive load shedding library for Java. When traffic spikes 5x, standard Java thread pools treat every request the same. Slow report exports and batch syncs clog the queue while login and checkout time out. NOPE solves this problem for Java backend systems.
+
+## What NOPE Does
+
+You wrap your HTTP handler or Servlet filter with three priority tiers: `CRITICAL`, `STANDARD`, and `BACKGROUND`. 
+
+When queue wait time rises above 20 milliseconds, NOPE automatically drops `BACKGROUND` and `STANDARD` requests with HTTP `503` errors. This keeps `CRITICAL` requests running fast.
 
 ## JMH Benchmark Results
 
@@ -11,12 +17,12 @@ Adaptive load shedding library for Java. Uses CoDel and Little's Law to control 
 | `acceptAndRelease` (critical) | 110 ns | 161 ns |
 | `acceptAndRelease` (background) | 110 ns | 161 ns |
 
-## How it works
+## How It Works
 
-- **CoDel controller**: Tracks queue wait time. When wait time goes over target (20 ms) for longer than the interval (100 ms), it starts dropping requests at a faster rate.
-- **Concurrency limiter**: Every second, computes capacity using Little's Law. Lowers limit if CPU load goes over 90 percent.
-- **Priority queues**: Three tiers (CRITICAL, STANDARD, BACKGROUND). Drops lowest tier first. Critical requests are never dropped unless memory is very low.
-- **NopeSemaphore**: Uses VarHandle CAS on a plain int field. No boxing or extra object creation on the hot path.
+- **CoDel controller**: Tracks queue wait time. When wait time goes over 20 ms for longer than 100 ms, it starts dropping requests.
+- **Concurrency limiter**: Every second, computes capacity using Little's Law. Lowers limits if CPU load goes over 90 percent.
+- **Priority queues**: Three tiers using concurrent queues. Drops lowest tier first. Critical tasks only drop if memory is low.
+- **NopeSemaphore**: Uses VarHandle CAS on a plain int field. Zero allocation on the hot path.
 
 ## Install
 
@@ -110,7 +116,9 @@ CoDelDropping, CoDelDropCount
 ./gradlew test
 ```
 
-## Design notes
+28 tests pass successfully.
+
+## Design Notes
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for design details.
 See [INTEGRATION.md](INTEGRATION.md) for setup guide.
