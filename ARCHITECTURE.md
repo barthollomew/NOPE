@@ -2,72 +2,72 @@
 
 ## Problem
 
-Standard thread-pool rejection policies (AbortPolicy, CallerRunsPolicy) are binary and unaware of request priority. Under flash load, they either queue without bound or reject uniformly, dropping critical traffic alongside background noise. NOPE applies network-engineering principles to HTTP request handling.
+Standard thread pool policies are blind to request priority. Under high load, they queue everything or reject tasks at random. NOPE applies network engineering rules to HTTP requests so important work keeps running.
 
 ## Components
 
 ### CoDelController
 
-Implements RFC 8289 (CoDel). State machine fields are plain volatile longs on VarHandle - no AtomicLong objects, zero allocation on the hot path.
+Implements RFC 8289 CoDel. State fields are volatile longs accessed by VarHandle. Zero allocation on the hot path.
 
-- `firstAboveTime`: set to `now + INTERVAL` the first time sojourn exceeds TARGET; reset to 0 when sojourn drops below TARGET.
-- `dropping`: flip to true when `now >= firstAboveTime`.
-- `dropCount`: incremented on each drop; drop interval = `INTERVAL / sqrt(dropCount)`.
-- `dropNext`: nanos timestamp of next forced drop.
+- `firstAboveTime`: set when wait time goes over target.
+- `dropping`: true when dropping mode is active.
+- `dropCount`: tracks total drops.
+- `dropNext`: timestamp for next drop.
 
-Defaults: TARGET = 20 ms, INTERVAL = 100 ms (per RFC 8289).
+Defaults: target is 20 ms, interval is 100 ms.
 
-Hot path: `shouldDrop(sojournNanos, nowNanos)` - one method, no allocations.
+Hot path method: `shouldDrop(sojournNanos, nowNanos)`.
 
 ### NopeSemaphore
 
-Bounded semaphore using a VarHandle on a plain `int permits` field. CAS loop in `tryAcquire()`, fetch-and-add in `release()`. No `AtomicInteger`, no boxing. Supports `updateLimit()` for dynamic resize by ConcurrencyLimiter.
+Bounded semaphore using a VarHandle on an int field. Uses CAS loops. No `AtomicInteger` or object boxing.
 
 ### SojournTracker
 
-Records arrival and service-start nanos. Maintains an EMA (alpha=0.125) of observed sojourn for the Little's Law computation. Exposed via JMX.
+Records request arrival and start times. Keeps an exponential moving average of wait time for Little's Law.
 
 ### ConcurrencyLimiter
 
-Every 1 s:
+Every second:
 
 ```
-lambda = arrivals.sumThenReset() / window_seconds   // LongAdder
-W      = ema of observed sojourn seconds             // SojournTracker
-L      = lambda * W                                  // Little's Law
-cpu    = OperatingSystemMXBean.getProcessCpuLoad()
+lambda = arrivals / window
+W      = wait time average
+L      = lambda * W
+cpu    = CPU load
 limit  = (cpu > 0.90) ? min(L, currentLimit) : L
-limit  = clamp(limit, MIN=2, MAX=1000)
+limit  = clamp(limit, 2, 1000)
 ```
 
-CPU clamp prevents limit growth during saturation. `OperatingSystemMXBean` is a zero-dependency JDK API.
+CPU check prevents limit growth when the server is busy.
 
 ### Priority Queues
 
-Three `ConcurrentLinkedQueue<RequestContext>` instances (CRITICAL, STANDARD, BACKGROUND). Dequeue order: CRITICAL first, then STANDARD, then BACKGROUND. One global `CoDelController` measures sojourn across all tiers. When shedding, `SheddingPolicy` selects from the lowest non-empty priority queue. CRITICAL is never dropped unless `Runtime.freeMemory()` falls below the OOM guard threshold (5% of max heap).
+Three `ConcurrentLinkedQueue` tiers (CRITICAL, STANDARD, BACKGROUND). Drops lowest tier first. Critical tasks only drop if memory is low.
 
 ### LoadShedder
 
-Orchestrates all components:
-1. Enqueue incoming `RequestContext` by priority.
-2. Call `limiter.recordArrival()`.
-3. Check `codel.shouldDrop()` and shed if true.
-4. `semaphore.tryAcquire()` - reject if full, shedding a lower-priority request first.
-5. Dequeue in CRITICAL -> STANDARD -> BACKGROUND order and mark start.
+Orchestrates the flow:
+1. Enqueue request by priority.
+2. Record arrival.
+3. Check CoDel drop rule.
+4. Try acquiring permit.
+5. Dequeue and run.
 
-### Nope (Builder)
+### Nope Builder
 
-Single entry point. Fluent builder wires all components. Provides `filter(PriorityExtractor)` for Jakarta Servlet containers and `httpHandler(priorityFn, delegate)` for JDK HttpServer.
+Main entry point. Wires all parts and provides servlet filters and HTTP handlers.
 
-## Concurrency Guarantees
+## Concurrency Choices
 
-| Need | Tool | Alternative rejected |
-|------|------|---------------------|
-| State machine fields | VarHandle on plain fields | AtomicLong allocates an object |
-| Arrival rate counter | LongAdder | AtomicLong contends under high write load |
-| Per-request queue | ConcurrentLinkedQueue | Allocation at enqueue, not on shed decision |
-| Bounded in-flight | NopeSemaphore (VarHandle CAS) | j.u.c.Semaphore has deeper object graph |
+| Requirement | Choice | Rejected |
+|---|---|---|
+| State fields | VarHandle on plain fields | `AtomicLong` allocates objects |
+| Arrival counter | `LongAdder` | `AtomicLong` has high contention |
+| Queue | `ConcurrentLinkedQueue` | Array blocking queues have locks |
+| Bounded permits | `NopeSemaphore` | `Semaphore` has a deep object graph |
 
 ## Allocation Budget
 
-Happy-path allocation: zero. All allocations occur at request enqueue time (RequestContext), not during the admit/reject decision.
+Zero allocations on the hot request path. All objects are created during request enqueue time.

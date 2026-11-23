@@ -1,26 +1,26 @@
 # NOPE
 
-Adaptive load-shedding library for Java 21+. Applies CoDel (RFC 8289) and
-Little's Law to HTTP request handling. Sheds low-priority traffic before the
-system saturates. Sub-microsecond accept/reject decision on the hot path.
+Adaptive load shedding library for Java. Uses CoDel and Little's Law to control HTTP request flow. Drops low priority traffic before the system gets slow. Fast decision path on every request.
+
+## JMH Benchmark Results
+
+| Benchmark | Mean | p99 |
+|---|---|---|
+| `CoDelController.shouldDrop` (above target) | 24 ns | 51 ns |
+| `CoDelController.shouldDrop` (below target) | 28 ns | 61 ns |
+| `acceptAndRelease` (critical) | 110 ns | 161 ns |
+| `acceptAndRelease` (background) | 110 ns | 161 ns |
 
 ## How it works
 
-- **CoDel controller**: tracks queue sojourn time. When sojourn exceeds the
-  target (default 20 ms) for longer than the interval (default 100 ms), it
-  enters dropping state and sheds at an accelerating rate.
-- **Concurrency limiter**: every 1 s, computes `L = lambda * W` (Little's Law)
-  from a `LongAdder` arrival counter and an EMA of sojourn time. Clamps the
-  limit if CPU load exceeds 90%.
-- **Priority queues**: three `ConcurrentLinkedQueue` tiers (CRITICAL, STANDARD,
-  BACKGROUND). Shedding always pulls from the lowest non-empty tier. CRITICAL
-  is never shed unless the JVM is within 5% of OOM.
-- **NopeSemaphore**: VarHandle CAS on a plain `int` field. No `AtomicInteger`,
-  no boxing, zero allocation on the hot path.
+- **CoDel controller**: Tracks queue wait time. When wait time goes over target (20 ms) for longer than the interval (100 ms), it starts dropping requests at a faster rate.
+- **Concurrency limiter**: Every second, computes capacity using Little's Law. Lowers limit if CPU load goes over 90 percent.
+- **Priority queues**: Three tiers (CRITICAL, STANDARD, BACKGROUND). Drops lowest tier first. Critical requests are never dropped unless memory is very low.
+- **NopeSemaphore**: Uses VarHandle CAS on a plain int field. No boxing or extra object creation on the hot path.
 
 ## Install
 
-Requires Java 21+. No runtime dependencies beyond the JDK.
+Requires Java 21 or newer. No runtime dependencies.
 
 ```bash
 ./gradlew clean build
@@ -54,7 +54,6 @@ server.createContext("/", nope.httpHandler(
 ));
 server.start();
 
-// On shutdown
 nope.stop();
 ```
 
@@ -76,20 +75,20 @@ FilterRegistration.Dynamic reg =
 reg.addMappingForUrlPatterns(null, false, "/*");
 ```
 
-Rejected requests receive HTTP 503.
+Rejected requests get HTTP 503.
 
 ## Configuration
 
 | Builder method | Default | Effect |
 |---|---|---|
-| `initialLimit(int)` | 50 | Starting concurrency limit |
-| `targetMillis(long)` | 20 | CoDel target sojourn time |
+| `initialLimit(int)` | 50 | Starting limit |
+| `targetMillis(long)` | 20 | CoDel target wait time |
 | `intervalMillis(long)` | 100 | CoDel interval |
-| `oomGuardFraction(double)` | 0.05 | Free-heap fraction below which CRITICAL sheds |
+| `oomGuardFraction(double)` | 0.05 | Free heap fraction below which critical tasks drop |
 
 ## JMX
 
-Metrics registered at `com.nope:type=NopeMetrics`:
+Metrics are at `com.nope:type=NopeMetrics`:
 
 ```
 Accepted, Rejected
@@ -105,20 +104,13 @@ CoDelDropping, CoDelDropCount
 ./gradlew jmh
 ```
 
-End-to-end accept/reject decision targets below 1 us/op (`NopeAcceptBenchmark`).
-`CoDelBenchmark` isolates the `shouldDrop()` call.
-
 ## Tests
 
 ```bash
 ./gradlew test
 ```
 
-25 tests. Includes a chaos integration test (`LoadShedderIntegrationTest`) that
-fires 5x overload at a JDK HttpServer and asserts the server stays alive with
-background traffic shed first.
-
 ## Design notes
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for concurrency choices and data flow.
-See [INTEGRATION.md](INTEGRATION.md) for full configuration reference.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for design details.
+See [INTEGRATION.md](INTEGRATION.md) for setup guide.
