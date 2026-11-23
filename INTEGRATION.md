@@ -2,13 +2,13 @@
 
 ## Build
 
-```
+```bash
 ./gradlew clean build
 ```
 
-Requires Java 21+. No runtime dependencies beyond the JDK.
+Requires Java 21 or newer. No extra runtime dependencies.
 
-## Jakarta Servlet (Spring Boot, Tomcat, Jetty)
+## Jakarta Servlet
 
 ```java
 Nope nope = Nope.builder()
@@ -17,7 +17,6 @@ Nope nope = Nope.builder()
         .build();
 nope.start();
 
-// Register as a filter
 PriorityExtractor extractor = req -> {
     String tier = req.getHeader("X-Priority");
     if ("critical".equals(tier)) return Priority.CRITICAL;
@@ -44,7 +43,7 @@ server.createContext("/", nope.httpHandler(
             return Priority.STANDARD;
         },
         exchange -> {
-            // your handler logic
+            // handler logic
         }
 ));
 server.start();
@@ -53,34 +52,33 @@ server.start();
 ## Shutdown
 
 ```java
-nope.stop(); // cancels limiter thread, unregisters JMX
+nope.stop();
 ```
 
 ## JMX Monitoring
 
 Metrics are registered at `com.nope:type=NopeMetrics`:
 
-- `Accepted` / `Rejected` - total request counts
-- `ShedBackground` / `ShedStandard` / `ShedCritical` - shed counts by tier
-- `CurrentLimit` - active concurrency limit from Little's Law
-- `AvailablePermits` - semaphore permits available
-- `EmaSojournMillis` - exponential moving average of sojourn time
-- `CoDelDropping` - whether CoDel is in dropping state
-- `CoDelDropCount` - total CoDel drops
+- `Accepted` and `Rejected` counts
+- Shed counts by priority tier
+- `CurrentLimit` from Little's Law
+- `AvailablePermits`
+- `EmaSojournMillis`
+- CoDel dropping state and drop count
 
 ## Configuration Reference
 
 | Method | Default | Description |
-|--------|---------|-------------|
-| `initialLimit(int)` | 50 | Starting concurrency limit |
-| `targetMillis(long)` | 20 | CoDel target sojourn (RFC 8289) |
-| `intervalMillis(long)` | 100 | CoDel interval (RFC 8289) |
-| `oomGuardFraction(double)` | 0.05 | Free-heap fraction below which CRITICAL sheds |
+|---|---|---|
+| `initialLimit(int)` | 50 | Starting limit |
+| `targetMillis(long)` | 20 | CoDel target wait time |
+| `intervalMillis(long)` | 100 | CoDel interval |
+| `oomGuardFraction(double)` | 0.05 | Free heap fraction below which critical tasks drop |
 
 ## Priority Selection
 
-Assign CRITICAL to health-check, payment, or auth endpoints. Assign BACKGROUND to batch jobs, analytics, or cache-warmup paths. Default is STANDARD. CRITICAL is never shed unless the JVM is within 5% of OOM.
+Use CRITICAL for health checks, payments, and auth. Use BACKGROUND for batch jobs and analytics. Default is STANDARD.
 
 ## Performance Notes
 
-The accept/reject decision (NopeSemaphore + CoDelController) benchmarks below 1 us/op on a single core under JMH. The ConcurrencyLimiter updates its limit every 1 s on a daemon thread and does not touch the hot path.
+The request admission decision runs in under one microsecond. The concurrency limiter runs on a background thread every second and does not touch the request hot path.
