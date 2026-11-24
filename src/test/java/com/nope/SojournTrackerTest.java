@@ -32,7 +32,7 @@ class SojournTrackerTest {
     void ema_convergesToSteadyState() {
         SojournTracker tracker = new SojournTracker();
         long base = 0L;
-        long delta = 50_000_000L; // 50ms
+        long delta = 50_000_000L;
 
         for (int i = 0; i < 50; i++) {
             tracker.recordArrival(base);
@@ -42,7 +42,6 @@ class SojournTrackerTest {
         }
 
         double ema = tracker.emaSojournNanos();
-        // EMA should be close to 50ms after many samples
         assertTrue(ema > 40_000_000.0 && ema < 60_000_000.0,
                 "EMA " + ema + " not near 50ms");
     }
@@ -50,11 +49,10 @@ class SojournTrackerTest {
     @Test
     void emaSojournSeconds_convertsCorrectly() {
         SojournTracker tracker = new SojournTracker();
-        long base = 1_000_000L; // non-zero so the > 0 guard passes
+        long base = 1_000_000L; // non-zero so the start > 0 guard in sojournNanos passes
         tracker.recordArrival(base);
         tracker.recordStart(base);
-        tracker.recordCompletion(base + 1_000_000_000L); // 1 second sojourn
-        // First sample: ema is set directly to sojourn (ema was 0.0)
+        tracker.recordCompletion(base + 1_000_000_000L);
         double secs = tracker.emaSojournSeconds();
         assertEquals(1.0, secs, 0.001);
     }

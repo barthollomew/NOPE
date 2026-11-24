@@ -33,7 +33,6 @@ public final class NopeFilter implements Filter {
             return;
         }
 
-        long start = System.nanoTime();
         try {
             chain.doFilter(request, response);
         } finally {

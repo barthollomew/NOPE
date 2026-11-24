@@ -16,15 +16,12 @@ public final class SheddingPolicy {
 
         boolean oomRisk = isOomRisk();
 
-        // Shed background first
         RequestContext ctx = background.poll();
         if (ctx != null) return ctx;
 
-        // Then standard
         ctx = standard.poll();
         if (ctx != null) return ctx;
 
-        // Only shed critical under OOM pressure
         if (oomRisk) {
             return critical.poll();
         }

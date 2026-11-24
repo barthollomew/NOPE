@@ -36,8 +36,6 @@ class LoadShedderIntegrationTest {
                 .intervalMillis(200)
                 .build();
 
-        LongAdder handledCount = new LongAdder();
-
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 128);
         server.createContext("/", nope.httpHandler(
                 exchange -> {
@@ -47,8 +45,6 @@ class LoadShedderIntegrationTest {
                     return Priority.CRITICAL;
                 },
                 exchange -> {
-                    handledCount.increment();
-                    // Simulate 20ms work
                     try { Thread.sleep(20); } catch (InterruptedException ignored) {}
                     byte[] resp = "ok".getBytes();
                     exchange.sendResponseHeaders(200, resp.length);
@@ -90,7 +86,6 @@ class LoadShedderIntegrationTest {
         ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         List<Future<?>> futures = new ArrayList<>();
 
-        // Fire background traffic
         for (int i = 0; i < bgRequests; i++) {
             futures.add(pool.submit(() -> {
                 int status = get("/bg");
@@ -98,7 +93,6 @@ class LoadShedderIntegrationTest {
             }));
         }
 
-        // Fire standard traffic
         for (int i = 0; i < stdRequests; i++) {
             futures.add(pool.submit(() -> {
                 int status = get("/std");
@@ -106,7 +100,6 @@ class LoadShedderIntegrationTest {
             }));
         }
 
-        // Fire critical traffic
         for (int i = 0; i < critRequests; i++) {
             futures.add(pool.submit(() -> {
                 int status = get("/crit");
@@ -120,25 +113,18 @@ class LoadShedderIntegrationTest {
         pool.shutdown();
 
         long totalBg = bg200.sum() + bg503.sum();
-        long totalShed = bg503.sum() + std503.sum() + crit503.sum();
 
-        // Server stayed alive: some requests succeeded
         long totalSucceeded = bg200.sum() + std200.sum() + crit200.sum();
         assertTrue(totalSucceeded > 0, "Server returned no 200s under load");
 
-        // BG shed rate must exceed 90% if there was meaningful background traffic
         if (totalBg > 10) {
-            double bgShedRate = (double) bg503.sum() / totalBg;
-            // BG sheds more than std+crit combined
             assertTrue(bg503.sum() >= std503.sum(),
                     "BG shed count " + bg503.sum() + " should be >= std shed " + std503.sum());
         }
 
-        // Critical traffic has the best success rate among all tiers
         if (crit503.sum() + crit200.sum() > 0 && std503.sum() + std200.sum() > 0) {
             double critSuccessRate = (double) crit200.sum() / (crit200.sum() + crit503.sum());
             double stdSuccessRate = (double) std200.sum() / (std200.sum() + std503.sum());
-            // Relax to: critical success rate is at least as good as standard
             assertTrue(critSuccessRate >= stdSuccessRate - 0.1,
                     "Critical success " + critSuccessRate + " should be >= standard " + stdSuccessRate);
         }

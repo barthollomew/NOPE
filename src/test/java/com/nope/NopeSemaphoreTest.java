@@ -42,7 +42,6 @@ class NopeSemaphoreTest {
         assertTrue(sem.tryAcquire());
         sem.updateLimit(10);
         assertEquals(10, sem.maxPermits());
-        // 8 permits should be available (10 - 2 in flight)
         assertEquals(8, sem.available());
     }
 
