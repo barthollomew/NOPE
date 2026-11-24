@@ -66,17 +66,14 @@ public final class CoDelController {
         }
 
         if (!isDropping) {
-            // Transition into dropping state
             long next = (long) DROP_NEXT.getVolatile(this);
             if (next == 0L || nowNanos - next < intervalNanos) {
-                // Not in a previous drop interval; start fresh
                 DROPPING.setVolatile(this, true);
                 int count = (int) DROP_COUNT.getAndAdd(this, 1);
                 DROP_NEXT.setVolatile(this, nowNanos + dropInterval(count + 1));
                 return true;
             }
         } else {
-            // Already dropping; check if we've reached the next drop time
             long next = (long) DROP_NEXT.getVolatile(this);
             if (nowNanos >= next) {
                 int count = (int) DROP_COUNT.getAndAdd(this, 1);
@@ -90,14 +87,12 @@ public final class CoDelController {
 
     private boolean updateFirstAboveTime(long sojournNanos, long nowNanos) {
         if (sojournNanos < targetNanos) {
-            // Below target: reset tracking
             FIRST_ABOVE_TIME.setVolatile(this, 0L);
             return false;
         }
 
         long fat = (long) FIRST_ABOVE_TIME.getVolatile(this);
         if (fat == 0L) {
-            // First time exceeding target: set the deadline
             FIRST_ABOVE_TIME.setVolatile(this, nowNanos + intervalNanos);
             return false;
         }
@@ -106,7 +101,6 @@ public final class CoDelController {
     }
 
     private long dropInterval(int count) {
-        // interval / sqrt(count)
         if (count <= 0) count = 1;
         return (long) (intervalNanos / Math.sqrt(count));
     }

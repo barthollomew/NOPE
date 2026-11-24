@@ -38,7 +38,6 @@ public final class LoadShedder implements AutoCloseable {
     public Decision submit(RequestContext ctx) {
         long nowNanos = System.nanoTime();
 
-        // Enqueue by priority
         switch (ctx.priority()) {
             case CRITICAL -> criticalQueue.offer(ctx);
             case STANDARD -> standardQueue.offer(ctx);
@@ -47,22 +46,19 @@ public final class LoadShedder implements AutoCloseable {
 
         limiter.recordArrival();
 
-        // Check CoDel on the queue sojourn
         long sojourn = ctx.sojournNanos(nowNanos);
         if (codel.shouldDrop(sojourn, nowNanos)) {
-            shed(nowNanos);
+            shed();
         }
 
-        // Try to acquire a permit
         if (!semaphore.tryAcquire()) {
-            // Backpressure: shed lowest priority to make room, then reject this
-            shed(nowNanos);
+            // Evict a lower-priority queued request under backpressure before rejecting.
+            shed();
             rejected.increment();
             removeFromQueue(ctx);
             return Decision.REJECTED;
         }
 
-        // Dequeue in priority order
         RequestContext next = dequeue();
         if (next == null) {
             semaphore.release();
@@ -98,7 +94,7 @@ public final class LoadShedder implements AutoCloseable {
         }
     }
 
-    private void shed(long nowNanos) {
+    private void shed() {
         RequestContext victim = sheddingPolicy.selectForShed(backgroundQueue, standardQueue, criticalQueue);
         if (victim == null) return;
         switch (victim.priority()) {

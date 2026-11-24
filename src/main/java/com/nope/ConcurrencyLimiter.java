@@ -13,7 +13,6 @@ public final class ConcurrencyLimiter implements AutoCloseable {
     private static final double CPU_THRESHOLD = 0.90;
     public static final int MIN_LIMIT = 2;
     public static final int MAX_LIMIT = 1000;
-    private static final long WINDOW_NANOS = 1_000_000_000L;
 
     private final NopeSemaphore semaphore;
     private final SojournTracker sojournTracker;

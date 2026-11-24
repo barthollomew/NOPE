@@ -44,14 +44,10 @@ class ConcurrencyLimiterTest {
 
     @Test
     void littlesLaw_limitComputation_basic() {
-        // L = lambda * W: if lambda=10 rps and W=0.1s then L=1
-        // We can't directly test the scheduler without time manipulation,
-        // but we can verify the math holds conceptually via boundary checks.
         double lambda = 100.0;
-        double W = 0.5; // 500ms
+        double W = 0.5;
         double L = lambda * W;
         assertTrue(L >= ConcurrencyLimiter.MIN_LIMIT);
-        // 50 in-flight is within [MIN_LIMIT, MAX_LIMIT]
         int clamped = (int) Math.max(ConcurrencyLimiter.MIN_LIMIT,
                 Math.min(ConcurrencyLimiter.MAX_LIMIT, L));
         assertEquals(50, clamped);
