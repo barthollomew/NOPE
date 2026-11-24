@@ -1,12 +1,12 @@
-# NOPE
+# drop-the-batch-jobs
 
-Adaptive load shedding library for Java. When traffic spikes 5x, standard Java thread pools treat every request the same. Slow report exports and batch syncs clog the queue while login and checkout time out. NOPE solves this problem for Java backend systems.
+Adaptive load shedding library for Java 21 (`com.nope`). When traffic spikes 5x standard Java thread pools treat every request the same. Slow report exports and batch syncs clog the queue while login and checkout time out.
 
-## What NOPE Does
+## What It Does
 
-You wrap your HTTP handler or Servlet filter with three priority tiers: `CRITICAL`, `STANDARD`, and `BACKGROUND`. 
+You wrap your HTTP handler or Servlet filter with three priority tiers: `CRITICAL` `STANDARD` and `BACKGROUND`.
 
-When queue wait time rises above 20 milliseconds, NOPE automatically drops `BACKGROUND` and `STANDARD` requests with HTTP `503` errors. This keeps `CRITICAL` requests running fast.
+When queue wait time rises above 20 milliseconds it drops `BACKGROUND` and then `STANDARD` requests with HTTP `503` errors. This keeps `CRITICAL` requests running fast.
 
 ## JMH Benchmark Results
 
